@@ -1,0 +1,447 @@
+---
+title: "Final report of R course"
+author: "Md Rezaul Karim Tusar"
+date: "15 December 2019"
+documenclass: article
+fontsize: 12pt
+papersize: a4
+bibliography: litdb.bib
+biblio-style: apalike
+link-citations: yes
+output:
+  rmarkdown::pdf_document:
+    number_sections: yes
+    citation_package: natbib
+---
+
+\centering 
+![Caption](logo.png){width="8cm"}
+
+\raggedright
+\tableofcontents
+\clearpage
+
+
+```{r setup, include=FALSE, cache=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, cache = TRUE}
+Dataset <- read.csv("NHANES1.csv")
+```
+
+At first we read the NHANES data set from the current directory. Then we view the data set to get familiar with it. 
+The variables containing with the data set are listed below.
+```{r}
+colnames(Dataset)
+```
+
+The sixty variables tell that, huge range of informations are collecting every year by this study program.
+
+## Exercise 1
+Exercise 1a;
+Important characteristics of the NHANES study program:
+
+- Study design: It is a continuous observational cohort study program.
+- Target population: Peoples in the United States.
+- Study objectives: Determination of the prevalence of major diseases and risk factors.
+- Study period: Every year the data are collected and make open for everyone in biannual manner along with the data of the previous two survey years.
+
+Exercise 1b;
+The general categories of variables in the dataset can be sorted into several categories based on their characteristics. Some of examples are listed below.
+a. Disease history: "asthma_ever" "asthma_now" "ovrwght_ever"   
+"arthrit_ever" "stroke_ever" "livdis_ever" "cbronch_now"    
+"livdis_now" "cancer_ever" "rel_heartdis" "rel_asthma" "rel_diab" "heartdis_ever" "lungpath_ever" "diab_lft".
+b. Body parameter:  "cd" "pb" "hg" "hdl" "hivpos" "weight" "height" "bmi".
+c. Personal information: "age" "educ" "martlst" "male" "ethnic".
+d. Lifestyle information: "hrsworked_prvwk" "jobstat_lwk" "wrkt_irreg" "workpollut" "sleep_dur" "sleep_probl" "cannab_ever" "harddrg_ever" "drnkprd_prv12mo" "alc_lft" "cigsprd_prv30d" "smokstat" "rdyfood_prvmo" "frzfood_prvmo" "milk_month".
+
+## Exercise 2
+Exercise 2a;
+Strange age: Before answering the question we would look at a glance the age distribution of the dataset by make a histogram. 
+
+```{r}
+attach(Dataset)
+hist(age, main = "The histogram of age", breaks = 30, col=8)
+qqnorm(age)
+```
+
+After observing the histogram we could say easily that the age are not in a form of normal distribution. However, we could also look at the log of age distribution. Hence, it has a better chance to get a normal distribution.
+
+```{r}
+hist(log(age), main = "The histogram of log(age)", breaks = 30, col=8)
+qqnorm(log(age))
+```
+
+The Centers for Disease Control and Prevention (CDC) designed the study program such a way that, all sorts of age people are almost equally included in the dataset. The age has a large impact on health condition and to find the result very precisely we could stratified the age variable in the following categories: 18-34, 35-49, 50-64, 65-79 and 80 or more than 80.
+
+```{r}
+categ_age <- rep(NULL, nrow(Dataset))
+categ_age[which(age >= 18 & age <= 34)]<-'low'
+categ_age[which(age >= 35 & age <= 49)]<-'lower_medium'
+categ_age[which(age >= 50 & age <= 64)]<-'medium'
+categ_age[which(age >= 65 & age <= 79)]<-'higher_medium'
+categ_age[which(age >= 80)]<-'higher'
+Dataset$categ_age <- categ_age
+```
+
+
+```{r}
+# We save the new dataset in our current folder.
+#save(Dataset, file = "Dataset.RData")
+#load("Dataset.RData")
+```
+
+Exercise 2b;
+At first, we look at the Marital status distribution to get familiar with it.
+```{r}
+table(martlst, exclude=c())
+```
+
+After observing the distribution I think it would be make sense to make three different categories in the following-
+
+a) happy_people: 'Married' + 'Living with partner'
+b) sad_people: 'Widowed' + 'Divorced' + 'Separated' + 'Refused to answer' + 'Don't know'
+c) unlucky_people: 'Never married'
+```{r}
+Luck_test <- NULL
+Luck_test[martlst==1|martlst==6] <- 'happy_people'
+Luck_test[martlst==2|martlst==3|martlst==4|martlst==77|martlst==99] <- 'sad_people'
+Luck_test[martlst==5] <- 'unlucky_people'
+Dataset$Luck_test <- Luck_test
+#save(Dataset, file = "Dataset.Rdata")
+#load(Dataset.Rdata)
+```
+
+Exercise 2c;
+```{r}
+table(srhgnrl, exclude = c())
+barplot(table(srhgnrl), main = "Histogram of self-rated health", col = c('green', 'pink', 'purple', 'blue', 'red'))
+```
+
+Actually, it is very tough to make a comment regarding the real scenario by only observing the above histogram and table. However, it is likely a normal distribution and probably most of people are trying to stay at middle position. Otherway, if we go at further analysis maybe we can find any clue like e.g; working hours, sleep at night or marital status have any direct correlation with self-rated health status.
+
+## Exercise 3: Diabetes and ethnicity:
+Exercise 3a;
+
+```{r}
+table(diab_lft, exclude=c())
+```
+
+By observing the diabetes table we could make an assume that, most of the peoples (4090) are out of diabetes and only few (21) are in prior diabets state while a good number of people (581) are already in diabets. We could put diabetes people and prior diabetes people in a same group and can made a new variable called diab_data.
+
+```{r}
+diab_data <- NULL
+diab_data[diab_lft == 1] <- 'non-diabetes'
+diab_data[diab_lft == 2|diab_lft == 3] <- 'diabetes'
+Dataset$diab_data <- diab_data
+```
+
+For an interval estimate for diabetes in the dataset we could calculate the prevalence of diabetes disease.
+```{r}
+prevalence <- function(patients, total_sample) {
+  preval <- patients/total_sample
+  return(preval)
+}
+prevalence(length(diab_data[which(diab_data == 'diabetes')]), length(diab_data[!is.na(diab_data)]))
+```
+
+We could double check the diabetes prevalence with proportion test.
+
+```{r}
+prop.test(table(diab_data))
+```
+
+Both are equal.Therefore, we could conclude that, almost 12.04 percent peoples are affected by diabetes.
+
+Exercise 3b;
+Relation between diabetes status and ethnicity;
+
+```{r}
+# Mosaic plot
+diab_on_ethnicity <- table(ethnic, diab_data)
+mosaicplot(diab_on_ethnicity, main = "Impact of ethnic identity on diabetes")
+```
+
+Group three belongs to African-American and by observing the mosaic plot it is clear that, this group has more chance to affect by diabetes compare to other three groups.
+Now we could make a statistical test to compute how strongly ethnic group put influence on diabetes. It's a 2*3 (Non-continuous variable) table and chi-square test be the appropriate to test the relation.
+```{r}
+chisq.test(diab_data, ethnic)
+```
+
+P-value is very small and as well as the Chi-squared test score also very high. Therefore, we could conclude that, the ethnic identity has a significant influence on diabetes.
+
+## Exercise 4: Weekly working hours and self-evaluated health status:
+Weekly working hours (hrsworked_prvwk): Ratio scale, class: Metric.
+self-evaluated health (srhgnrl): Ordinal scale, class: Categorical.
+Exercise 4a;
+```{r}
+hrsworked_prvwk[which(hrsworked_prvwk == 77777)] <- NA
+hrsworked_prvwk[which(hrsworked_prvwk == 99999)] <- NA
+```
+
+
+Exercise 4b;
+```{r}
+categ_whours <- rep(NULL, nrow(Dataset))
+categ_whours[hrsworked_prvwk >= 0 & hrsworked_prvwk <= 40] <- 'average_Whours'
+categ_whours[hrsworked_prvwk >= 41] <- 'overwork_Whours'
+Dataset$categ_whours <- categ_whours 
+table(categ_whours, exclude = c())
+```
+
+Exercise 4c;
+First of all we could try to figure out the relation between weekly working hours and self-evaluated health status by observing a mosaic plot.
+```{r}
+work_on_health <- table(categ_whours, srhgnrl)
+mosaicplot(work_on_health, main = "Impact of working hours on self-rated health")
+```
+
+The Mosaic plot is surprising. It tells that, people who worked more than 40 hours per week were healthier (self-rated) than people who worked 40 or less than 40 hours per week.
+
+Exercise 4d;
+Statistical test to test for the statistical significance of this relation:
+It is a 2*5 (binary and categorical(ordinal)) table. Here also the chi-square test would be the appropriate one. 
+```{r}
+chisq.test(work_on_health)
+```
+
+Here, the Chi-squared test score (7.7527) looks nice but the p-value (0.1011) is higher than 0.05. That means, the difference is not enough to tell significantly difference on $\alpha=$ 5% level.
+
+## Exercise 5: Blood mercury level and gender:
+Exercise 5a;
+At first we could look at mean value of blood mercury level in men and women both. 
+```{r}
+mean(hg, na.rm = T)
+mean(hg[which(male == T)], na.rm = T)
+mean(hg[which(male == F)], na.rm = T)
+```
+
+The mean value tells that, the blood mercury level in men are higher than the women. We could looks on the boxplot to get familier with the distribution of the blood mercury level. 
+```{r}
+boxplot(hg ~ male)
+boxplot(hg ~ male, ylim = c(0, 25))
+hist(hg, xlim = c(0, 100), breaks = 40, main = "The histogram of blood mercury level")
+```
+
+The blood mercury level are not normally distributed. There are lots of outliers. In this case we could make the log transform and look if the distribution is normal.
+
+```{r}
+hg_log <- log(hg)
+boxplot(hg_log ~ male)
+hist(hg_log, main = "The histogram of blood mercury (log-scale) level")
+```
+
+Although, still there are some outliers but the distribution looks normal. 
+
+Exercise 5b;
+Parametric test: In this case the two sample t-test would be the appropriate one to calculate; is the blood mercury level is significantly different from men to women? But the condition is normal distribution required. So, we could work with the log transformed data. Before doing the t-test we should check the variance is equal or not by F-test.
+
+```{r}
+var.test(hg_log[which(male == T)], hg_log[which(male == F)])
+```
+
+So, the variance in male and female are unequal. 
+
+```{r}
+# Variance unequal by defalt (var.equal = F)
+t.test(hg_log[which(male == T)], hg_log[which(male == F)])
+```
+
+The test score is $t = 0.68265$ and p-value is $0.4949$ and 95% confidence interval contains $0$. Thus, the Null is accepted, which means there are no any significant difference between men and women. As a curious mind I also like to observe the result with the original data.
+
+```{r}
+t.test(hg[which(male == T)], hg[which(male == F)])
+```
+
+The p-value is slightly higher than the threshold. However, we could not rely on this result as our data consists a lot of outliers.
+
+Non-Parametric test: Mann-Whitney U test would be the right one to test the relation.
+```{r}
+wilcox.test(hg~male)
+```
+
+We also look with the log scaled values.
+
+```{r}
+wilcox.test(hg_log~male)
+```
+
+The p-value is much higher than the parametric test.
+Any significant diffference between male and female on blood mercury level is not proved.
+
+## Exercise 6: BMI and HDL:
+Exercise 6a;
+Firstly we would look the correlation between HDL and BMI.
+```{r}
+cor(hdl, bmi, use = "pairwise.complete.obs")
+```
+
+There is a negative correlation between these two variable. We could also observe it graphically by making a scatter plot.
+```{r}
+scatter.smooth(bmi, hdl, main = "Relation between BMI and hdl")
+```
+
+The scatter plot looks like a cloud. I would like to observe the boxplot if there any better graphical representation.
+
+```{r}
+boxplot(bmi ~ hdl, use = "pairwise.complete.obs", main = "Relation between BMI and hdl")
+```
+
+
+By doing a correlation test we could find out; is the relation between BMI and HDL is enough significant or not. At first we should check the distribution is normal or not. 
+
+```{r}
+hist(bmi)
+hist(hdl)
+```
+
+The distribution of BMI is not normally distributed. Therefore, we should work with the log scaled values in the correlation test. 
+
+```{r}
+cor.test(log(bmi), log(hdl))
+```
+
+The p-value is very small. Thus, the relation is significant. 
+
+```{r}
+model_1 <- lm(hdl ~ bmi, data = Dataset)
+summary(model_1)
+```
+
+If BMI increase by $1 kg/m2$ then the HDL will decrease by $-0.0154 mmol/l$ and only $7.72\%$ variation in HDL can be explained by variation in BMI.
+
+Exercise 6b;
+Now we add age variable in our model.
+```{r}
+model_2 <- lm( hdl ~ bmi + categ_age, data = Dataset)
+summary(model_2)
+```
+
+The dependency of HDL to BMI are slightly increased while age variable added at the model. All age categories have influence on HDL while low age categories influence is relatively large. The effect of low and lower medium group is only significant. The intercept (intercept of Y-axis) is $1.8466739$ which means if the BMI is $0$ and the age also $0$ then according to the model the HDL will be predicted as $1.8466739$!
+Statictically significant $\neq$ Clinically significant. We could not predict anything regarding clinically relevant or not based on our model.
+
+Exercise 6c;
+We are adding more variable into our model and then select the best model by a model selection strategy. Before doing that, we should remaind that our data has lots of missing values what would be a problematic while using the model selection criteria. One probable solution is to erase all missing data.
+```{r}
+dataset <- Dataset[ ,c('male', 'categ_age', 'height', 'weight', 'bmi', 'hdl', 'smokstat', 'cancer_ever', 'livdis_now', 'diab_lft', 'ethnic', 'sleep_probl', 'rdyfood_prvmo')]
+newdata <- dataset[complete.cases(dataset), ]
+
+model_3 <- lm(hdl ~ ., data = newdata)
+library(MASS)
+stepAIC(model_3)
+
+```
+
+Strange! our AIC score is negative. However, based on AIC score the best model is 'hdl ~ height + bmi'. This two variable have strong influence on HDL. The intercept is $4.36075$ which means if the height and bmi both is $0$ than the HDL would be $4.36075$! 
+If the height increase in one cm with all other variables keeping unchanged than the HDL would be decrease by $-0.01573$ mmol/l correspondingly if the BMI increase $1 kg/m2$ then the HDL decrease by $-0.01624 mmol/l$.
+
+## Exercise 7: Cancer
+Exercise 7a; Lifetime Prevalence of Cancer:
+
+First of all we compute the prevalece by our own created function than compare it with the outcome of proportion test.
+```{r}
+prevalence(length(cancer_ever[which(cancer_ever == T)]), length(cancer_ever[!is.na(cancer_ever)]))
+
+```
+
+The prevalece of cancer in our dataset is $8.8\%$. 
+
+```{r}
+prop.test(table(cancer_ever))
+```
+
+Cancer prevalence $91.2\%$! Actually, we calculte here prevalence of not having the cancer. Because the prop test consider in an alphabetical order. Here, false comes before the true. So, it 
+calculated the prevalence of not having the cancer. We could also make it turn around.
+
+```{r}
+prop.test(table(!cancer_ever))
+```
+The result is similar with the first one.
+
+Exercise 7b;
+Prevalence of cancer among who exposed by pollutants during work.
+```{r}
+prop.test(table(!cancer_ever[workpollut == T]))
+```
+
+Surprisingly the prevalence of cancer among those who exposed by pollutants during work is less than the average ($7.6\%$)! Now we calculate the prevalence of cancer among people who were not exposed by pollutants at work.
+
+```{r}
+prop.test(table(!cancer_ever[workpollut == F]))
+```
+
+The prevalece is $6.9\%$, less than the exposed group. But the strange is both group have less prevalence than average. Probably there are some missing data which make this inconvenience. we would try to figure out the reason behind that.
+
+```{r}
+table(cancer_ever, exclude=c())
+```
+
+Total size is: 4316 + 416 $=$ 4732.
+```{r}
+table(workpollut, exclude=c())
+```
+
+Total size is 4373. So, missing data is the reason behind the inconvenience.
+Statistical test between the two group:
+```{r}
+prop.test(table(workpollut, !cancer_ever))
+```
+
+The proportion test tells that, although the prevalence percentage is slightly different from each other but that is not significantly different. Probably exposed group is relatively younger than the non-exposed group or there are other factors which have influence or there are indeed no any influence of working pollutants in cancer. We could not make any final comments based on our dataset.
+
+Exercise 7c;
+```{r}
+model_4 <- glm(cancer_ever ~ workpollut + categ_age, family = binomial(logit))
+summary(model_4)
+```
+
+Adjustment for age does not impact on the situation. The variable 'workpollut' has no any significantly influence on cancer disease (based on our result). Otherhand, age variable (categorical) has significantly influence on Cancer disease.
+
+```{r}
+exp(model_4$coefficients["(Intercept)"])/(1+exp(model_4$coefficients["(Intercept)"]))
+```
+
+If the patient is not exposed by pollutants during work and belongs to age category low ('categ_agelow') than based on the model the cancer prevalence is $18.9\%$. 
+We try to figure out the coefficients of age category medium.
+
+```{r}
+exp(-0.9069)
+```
+The odds of not having cancer in this specific group is $60\%$ of the reference group.
+
+```{r}
+exp(-1.4537 - 0.9069)/(1 + exp(-1.4537 - 0.9069))
+```
+
+The prevalence of cancer in age category medium group is $8\%$.
+
+Exercise 7d; 
+```{r}
+model_5 <- glm(cancer_ever ~ ., family = binomial, data = newdata)
+stepAIC(model_5)
+```
+
+Based on the AIC score our best fitted model is 'cancer_ever ~ categ_age + height + weight + bmi + hdl + sleep_probl'. 
+
+```{r}
+model_6 <- glm(cancer_ever ~ categ_age + height + weight + bmi + hdl + sleep_probl, family = binomial, data = newdata)
+summary(model_6)
+```
+
+We would try to figure out the effect of weight on cancer.
+
+```{r}
+1/exp(-0.5993)
+```
+
+The odds of having cancer are 1.82 fold higher if 1 kg weight increase. 
+
+
+## Software
+Following software versions are used to generate this report.
+```{r, info, echo = FALSE}
+sessionInfo()
+```
+
+
